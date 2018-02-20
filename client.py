@@ -1,6 +1,24 @@
 import zmq
 import sys
 import time
+import threading
+import pyaudio
+import socket
+
+get_myip = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+get_myip.connect(("gmail.com",80))
+myip = get_myip.getsockname()
+
+def request():
+	while True:
+		req_socket.send_json()
+		req_socket.recv_string()
+
+def reply():
+	while True:
+		rep_socket.recv_json()
+		rep_socket.send_sting()
+
 # Funcion main
 def main():
 	# verificamos la cantidad de parametros
@@ -16,51 +34,17 @@ def main():
 
 	# creamos un contexto para la conexion (por ahora es magico)
 	context = zmq.Context()
-	# creamos un socket
-	s = context.socket(zmq.REQ)
+	# creamos un socket de tipo request
+	req_socket = context.socket(zmq.REQ)
 	# nos conectamos al servidor a traves de socket por medio de tcp
-	s.connect("tcp://{}:{}".format(ip, port))
-	# mostramos un mensaje de confirmacion
-	print("Connecting to server {} at {}".format(ip, port))
+	req_socket.connect("tcp://{}:{}".format(ip, port))
+	# creamos un socket de tipo reply
+	rep_socket = context.socket(zmq.REP)
+	rep_socket.bind("tcp://*:{}".format(1234))
 
-	# si la operacion es listar
-	if operation == "list":
-		# hacemos la peticion al servidor para listar
-		s.send_json({"op": "list"})
-		# cargamos la respuesta del servidor en files
-		files = s.recv_json()
-		# mostramos la lista de archivos
-		print(files)
-	# si la operacion es descargar
-	elif operation == "download":
-		# solicitamos el nombre del archivo
-		name = input("File to download? ")
-		# hacemos la solicitud al servidor pidiendo el numero de partes del archivo
-		s.send_json({"op": "fileparts", "file": name})
-		# obtenemos dicho valor
-		numberParts = s.recv_json()
-		if type(numberParts) == str:
-			print(numberParts)
-			exit()
-		part = 0 # indice para solicitar partes
-		# creamos un nuevo archivo, donde almacenaremos las partes enviadas por el servidor
-		# para recrear el archivo original
-		start = time.time() # hora de inicio de descarga del archivo
-		with open(name, "wb") as output:
-			# mientras el indice sea menor al numero de partes del archivo 
-			while (part < numberParts):
-				# solicitamos la parte correspondiente al servidor
-				s.send_json({"op": "download", "file": name, "part": part})
-				# recibimos esa parte
-				file = s.recv()
-				# escribimos dicha parte en el archivo creado
-				output.write(file)
-				# incrementamos el indice
-				part +=1
-		end = time.time() # hora de finalizacion de descarga del archivo
-		print(end - start) # mostramos cuanto tiempo se tardo la descarga
-	else: # si la operacion no existe
-		print("Error!!!, unsupported operation")
+	print("Connecting to server {} at {}".format(ip, port))
+	req_socket.send_json({"op":"register", "user": operation, "ip": myip[0], "port": 1234})
+	print(req_socket.recv_string())
 
 # inicializamos la funcion main
 if __name__ == '__main__':
