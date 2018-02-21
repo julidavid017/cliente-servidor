@@ -7,14 +7,13 @@ connected_users = {}
 
 def main():
 	# si el numero de argumentos es diferente del numero de parametros
-	if len(sys.argv) != 3:
+	# formato: <serverport>
+	if len(sys.argv) != 2:
 		# mostramos un mensaje de error
 		print("Error!!!")
 		exit()
 	# recogemos los datos para arrancar el servidor
-	directory = sys.argv[2] # directorio donde se encuentran los archivos
 	port = sys.argv[1] # puerto de conexion
-	part_size = 1024*1024 # tamaño en MB
 
 	# creamos un contexto para la conexion (por ahora es magico)
 	context = zmq.Context()
@@ -26,7 +25,7 @@ def main():
 	while True:
 		# capturamos el mensaje
 		msg = s.recv_json()
-		if(msg["op"] == "register"):
+		if msg["op"] == "register":
 			us_ip = msg["ip"]
 			us_port = msg["port"]
 			user = msg["user"]
@@ -34,9 +33,27 @@ def main():
 			us_socket.connect("tcp://{}:{}".format(us_ip, us_port))
 			connected_users[user] = us_socket
 			s.send_string("ok")
-		print(len(connected_users))
+		elif msg["op"] == "contact":
+			origin = msg["origin"]
+			destination = msg["destination"]
+			if connected_users.get(destination) != None:
+				s.send_string("ok")
+				destination_s = connected_users[destination]
+				destination_s.send_json({"op": "contact", "origin": origin})
+				answer = destination_s.recv_string()
+				if answer == "s":
+					origin_s = connected_users[origin]
+					origin_s.send_json({"op": "confirm", "destination": destination})
+					origin_s.recv_string()
+					destination_s.send_json({"op": "confirm", "destination": origin})
+					destination_s.recv_string()
+		elif msg["op"] == "inContact":
+			destination = msg["destination"]
+			s.send_string("ok")
+			destination_s = connected_users[destination]
+			destination_s.send_json(msg)
+			destination_s.recv_string()
 		
-
 # inicializamos la funcion main
 if __name__ == '__main__':
 	main()
