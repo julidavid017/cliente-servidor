@@ -20,25 +20,29 @@ isInContact = False
 
 # funcion para enviar los mensajes al servidor
 def request(req_socket, user):
+	audio = pyaudio.PyAudio()
+	stream = audio.open(format=FORMAT, channels=CHANNELS,rate=RATE, input=True,frames_per_buffer=CHUNK)
 	while True:
 		# mientras esten conectados
 		if isInContact == True:
 			# enviamos el audio
-			audio = pyaudio.PyAudio()
- 			# start Recording
-			stream = audio.open(format=FORMAT, channels=CHANNELS,rate=RATE, input=True,frames_per_buffer=CHUNK)
+			
+ 			# iniciamos la grabacion
 			message = stream.read(CHUNK)
-			req_socket.send_json({"op": "inContact", "destination": username, "message": message})
+			req_socket.send_json({"op": "inContact", "destination": username, "message": message.decode('UTF-16', 'ignore')})
 			req_socket.recv_string()
 	stream.stop_stream()
 	stream.close()
 	audio.terminate()
+	
 # funcion para recibir los mensajes del servidor
 def reply(rep_socket, req_socket, user):
 	# uso de variables globales
 	global username
 	global isInContact
 	# esperamos mensajes
+	p = pyaudio.PyAudio()
+	stream = p.open(format=FORMAT,channels=CHANNELS,rate=RATE,output=True)
 	while True:
 		msg = rep_socket.recv_json() # capturamos el mensaje
 		if msg["op"] == "contact": # si la operacion es contact
@@ -58,19 +62,15 @@ def reply(rep_socket, req_socket, user):
 			rep_socket.send_string("ok")
 		elif msg["op"] == "inContact": # si ya estan conectados
 			#reproducimos el audio
-			p = pyaudio.PyAudio()
-			stream = p.open(format=pyaudio.paInt16,
-		                channels=CHANNELS,
-		                rate=RATE,
-		                output=True)
-			stream.write(msg["message"])
-			print("{}: {}".format(username, msg["message"]))
+			stream.write(msg["message"].encode('UTF-16','ignore'))
+			#print("{}: {}".format(username, msg["message"]))
 			rep_socket.send_string("ok")
 		else:
 			rep_socket.send_string("ok")
 	stream.stop_stream()
 	stream.close()
 	p.terminate()
+	
 
 
 def options(user, req_socket):
