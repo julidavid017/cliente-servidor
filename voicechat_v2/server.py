@@ -49,11 +49,13 @@ def main():
 			member_s.recv_string()
 		elif msg["op"] == "inContact":
 			destination = msg["destination"]
+			user = msg["user"]
 			s.send_string("ok")
 			for member in groups[destination]:
-				destination_s = connected_users[member]
-				destination_s.send_json(msg)
-				destination_s.recv_string()
+				if member != user: 
+					destination_s = connected_users[member]
+					destination_s.send_json(msg)
+					destination_s.recv_string()
 		
 # inicializamos la funcion main
 if __name__ == '__main__':

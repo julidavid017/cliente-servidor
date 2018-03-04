@@ -13,26 +13,27 @@ import socket
 FORMAT = pyaudio.paInt16
 CHANNELS = 2
 RATE = 44100
-CHUNK = 1024
+CHUNK = 64
  #variables globales
 group = ""
 
 # funcion para enviar los mensajes al servidor
-def request(req_socket, msg):
+def request(req_socket, user):
 	audio = pyaudio.PyAudio()
 	stream = audio.open(format=FORMAT, channels=CHANNELS,rate=RATE, input=True,frames_per_buffer=CHUNK)
 	while True:
 		# enviamos el audio
 		# iniciamos la grabacion
 		message = stream.read(CHUNK)
-		req_socket.send_json({"op": "inContact", "destination": group, "message": message.decode('UTF-16', 'ignore')})
+		print("enviado")
+		req_socket.send_json({"op": "inContact","user": user, "destination": group, "message": message.decode('UTF-16', 'ignore')})
 		req_socket.recv_string()
 	stream.stop_stream()
 	stream.close()
 	audio.terminate()
 	
 # funcion para recibir los mensajes del servidor
-def reply(rep_socket, req_socket):
+def reply(rep_socket, req_socket,user):
 	# esperamos mensajes
 	p = pyaudio.PyAudio()
 	stream = p.open(format=FORMAT,channels=CHANNELS,rate=RATE,output=True)
@@ -40,10 +41,11 @@ def reply(rep_socket, req_socket):
 		msg = rep_socket.recv_json() # capturamos el mensaje
 		if msg["op"] == "confirm": # si el mensaje se confirma la llamada
 			# lanzamos el hilo para comenzar a enviar informacion
-			threading.Thread(target = request, args = (req_socket, "")).start()
+			threading.Thread(target = request, args = (req_socket, user)).start()
 			rep_socket.send_string("ok")
 		elif msg["op"] == "inContact": # si ya estan conectados
 			#reproducimos el audio
+			print ("recibido")
 			stream.write(msg["message"].encode('UTF-16','ignore'))
 			#print("{}: {}".format(username, msg["message"]))
 			rep_socket.send_string("ok")
@@ -104,7 +106,7 @@ def main():
 	req_socket.send_json({"op":"register", "user": user, "ip": myip, "port": myport})
 	req_socket.recv_string()
 	# lanzamos el hilo para esuchar los mensajes del servidor
-	threading.Thread(target = reply, args = (rep_socket, req_socket)).start()
+	threading.Thread(target = reply, args = (rep_socket, req_socket,user)).start()
 	# mostramos el menu
 	options(user, req_socket)
 	
